@@ -1,11 +1,15 @@
 {
   "name": "videogram",
   "version": "1.0.0",
+  "type": "module",
   "description": "this is a videoStriming platform",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon src/index.js"
   },
   "author": "prashant",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
 }
