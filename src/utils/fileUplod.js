@@ -12,7 +12,8 @@ const uplodadCloud = async(localFile)=>{
     try {
         if(!localFile)console.error("uplod cloud failed: server error local file not found");
         const responce = await cloudinary.uploader.upload(localFile,{resource_type: "auto"})
-        console.log("file uploded to cloud",responce.url );
+        console.log(responce);
+        fs.unlinkSync(localFile);
         return responce;
         
         

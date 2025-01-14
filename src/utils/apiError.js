@@ -1,4 +1,4 @@
-class apiError {    
+class apiError extends Error {    
     constructor(
         statusCode ,
         message = "api error something went wrong",
