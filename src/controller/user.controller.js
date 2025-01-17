@@ -3,6 +3,8 @@ import { apiError } from "../utils/apiError.js";
 import {User} from '../models/user.js'
 import { uplodadCloud } from "../utils/fileUplod.js";
 import { apiResponce } from "../utils/apiResponce.js";
+import jwt from "jsonwebtoken";
+import { json } from 'express';
 
  const generateAccessReferesToken = async (user_id) => {
     try {
@@ -73,15 +75,17 @@ const register = asyncHandler(async (req, res, next) => {
 
 const login = asyncHandler(async (req, res, next) => {
 
-    const { username, email, password } = req.body;
-
-    if(!username || !email){
+    
+    const { username,email,password, } = req.body
+    
+    
+    if(!(username || email)){
         throw new apiError(400, "username or email is required");
     }
     
     const user = await User.findOne({ $or: [{ email }, { username }] });
 
-    throw new apiError(404, "User not found");
+    if(!user) throw new apiError(404, "User not found");
 
     const isMatch = await user.passwordMatch(password);
     
@@ -106,6 +110,8 @@ const login = asyncHandler(async (req, res, next) => {
 });
 
 const logout = asyncHandler(async (req, res, next) => {
+    console.log(req.user);
+    
     await User.findByIdAndUpdate(req.user._id, { $set:{ refreshToken: undefined } },{new:true} );
 
     const options = {
@@ -119,4 +125,39 @@ const logout = asyncHandler(async (req, res, next) => {
     .json(new apiResponce(200, null, "User logged out successfully"));
 })
 
-export { register , login, logout } ;
+const refreshAccessToken = asyncHandler(async (req, res, next) => {
+    const { Token } = req.cookies?.refreshToken || req.body?.refreshToken;
+    if (!Token) {
+        throw new apiError(401, "Unauthorized request");
+    }
+
+    try {
+        const decoded = jwt.verify(Token, process.env.REFRESH_TOKEN_SECRET);
+
+    const user = await User.findById(decoded?._id);
+    if(!user) throw new apiError(401, "Invalid token");
+
+    if(Token !== user?.refreshToken) throw new apiError(401, "refresh token is invalid or expierd");
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    }
+
+    const { gen_accessToken, gen_refreshToken }= await generateAccessReferesToken(user._id)
+
+    return res
+    .status(200)
+    .cookie("accessToken", gen_accessTokenaccessToken, options)
+    .cookie("refreshToken", gen_refreshToken, options)
+    json(new apiResponce(200, {accessToken: gen_accessToken , refreshToken: gen_refreshToken },
+        "Token generation successfully"
+    ))
+
+    } catch (error) {
+        throw new apiError(401, error.message || "Invalid token");     
+    }
+
+})
+
+export { register , login, logout,generateAccessReferesToken ,refreshAccessToken } ;
