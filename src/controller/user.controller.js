@@ -160,4 +160,70 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
 
 })
 
-export { register , login, logout,generateAccessReferesToken ,refreshAccessToken } ;
+const changeCurrentPassword = asyncHandler(async (req, res, next) => {
+    const {oldPassword, newPassword}  = req.body 
+
+   const user = await User.findById(req.user._id)
+   const isMatch = await user.passwordMatch(oldPassword)
+    if(!isMatch) throw new apiError(400, "Invalid password")
+
+    user.password = newPassword;
+    await user.save({validateBeforeSave: false})
+
+    return res.status(200).json(new apiResponce(200, null, "Password changed successfully"))
+});
+
+const getProfile = asyncHandler(async (req, res, next) => {
+    return res.status(200)
+    .json(new apiResponce(200, req.user, "User profile fetched successfully"))
+    
+
+});
+
+const updateProfile = asyncHandler(async (req, res, next) => {
+    const { fullName, email } = req.body;
+
+    if ( !(fullName|| email ) )  {
+        throw new apiError(400, "fill required fields properly");
+    }
+
+    const updatedUser = await  User.findByIdAndUpdate(user._id, { 
+        $set: {
+            fullName: fullName || user.fullName,
+            email: email || user.email,
+        }
+     }, { new: true }).select("-password -refreshToken");
+
+
+    return res.status(200).json(new apiResponce(200, updatedUser, "User updated successfully"));
+});
+
+const updateAvatar = asyncHandler(async (req, res, next) => {
+    const avatarLocalPath = req.file?.avatar?.[0].path;
+    if (!avatarLocalPath) {
+        throw new apiError(400, "Avatar is required");
+    }
+
+    const avatar = await uplodadCloud(avatarLocalPath)
+    if(!avatar) throw new apiError(500, "Avatar upload failed");
+
+    const updatedUser = await User.findByIdAndUpdate(user._id, { $set: { avatar: avatar.url } }, { new: true }).select("-password -refreshToken");
+
+    return res.status(200).json(new apiResponce(200, updatedUser, "Avatar updated successfully"));
+});
+
+const updateCoverImage = asyncHandler(async (req, res, next) => {
+    const coverImageLocalPath = req.file?.coverImage?.[0].path;
+    if (!coverImageLocalPath) {
+        throw new apiError(400, "Cover image is required");
+    }
+
+    const coverImage = await uplodadCloud(coverImageLocalPath)
+    if(!coverImage) throw new apiError(500, "Cover image upload failed");
+
+    const updatedUser = await User.findByIdAndUpdate(user._id, { $set: { coverImage: coverImage.url } }, { new: true }).select("-password -refreshToken");
+
+    return res.status(200).json(new apiResponce(200, updatedUser, "Cover image updated successfully"));
+});
+
+export { register , login, logout,generateAccessReferesToken ,refreshAccessToken,changeCurrentPassword, getProfile, updateProfile, updateAvatar, updateCoverImage } ;
