@@ -209,6 +209,7 @@ const updateAvatar = asyncHandler(async (req, res, next) => {
 
     const updatedUser = await User.findByIdAndUpdate(user._id, { $set: { avatar: avatar.url } }, { new: true }).select("-password -refreshToken");
 
+
     return res.status(200).json(new apiResponce(200, updatedUser, "Avatar updated successfully"));
 });
 
@@ -226,4 +227,114 @@ const updateCoverImage = asyncHandler(async (req, res, next) => {
     return res.status(200).json(new apiResponce(200, updatedUser, "Cover image updated successfully"));
 });
 
-export { register , login, logout,generateAccessReferesToken ,refreshAccessToken,changeCurrentPassword, getProfile, updateProfile, updateAvatar, updateCoverImage } ;
+
+const getChannelProfile = asyncHandler(async (req, res, next) => {
+    const { username } = req.params;
+    if (!username?.trim()) {
+        throw new apiError(400, "channel is not found ");
+        
+    }
+    
+    const channel =  User.aggregate([
+        {
+            $match: { username: username?.toLowerCase() }
+        },
+        {
+            $lookup: {
+                from: "Subscription",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "Subscription",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        }, 
+        {
+            $addFields:{
+                subscriberCount: { $size: "$subscribers" },
+                channelSubscribedCount: { $size: "$subscribedTo" },
+                isSubscribed: {
+                    $cond: {
+                        if: {
+                            $in: [req.user?._id, "$subscribers.subscriber"]
+                        },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                subscriberCount: 1,
+                channelSubscribedCount: 1,
+                isSubscribed: 1,
+                username:1,
+                fullName: 1,
+                avatar: 1,
+                coverImage: 1,
+
+
+            }
+        }
+    ])
+
+    if(!channel?.length) throw new apiError(404, "Channel not found");
+    return res.status(200).json(new apiResponce(200, channel[0], "Channel found successfully"));
+})
+
+const getHistory = asyncHandler(async (req, res, next) => {
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "Video",
+                localField: "watchHistory.video",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "User",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        username: 1,
+                                        fullName: 1,
+                                        avatar: 1,
+
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: { $first: "$owner" }
+                        }
+                    }
+                    
+                ]
+            }
+        }
+    ])
+
+    res.status(200).json(new apiResponce(200, user[0].watchHistory, "Watch history fetched successfully"));
+
+
+})
+
+export { register , login, logout,generateAccessReferesToken ,refreshAccessToken,changeCurrentPassword, getProfile, updateProfile, updateAvatar, updateCoverImage, getChannelProfile,getHistory } ;
